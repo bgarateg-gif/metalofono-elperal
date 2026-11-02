@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:,">
 <title>Metalófono – Repertorio</title>
 <style>
-  :root { --fg:#000; --bg:#fff; --izq:#90EE90; --der:#FF9A1F; }
+  :root { --fg:#000; --bg:#fff; --izq:#90EE90; --der:#FF6B00; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family:Georgia,"Times New Roman",serif; }
   body { display:flex; flex-direction:column; height:100vh; height:100dvh; min-height:520px; overflow-x:hidden; }
@@ -35,7 +36,7 @@
   #hands button { flex:1; padding:8px 6px; font-size:15px; }
   #play { min-width:116px; }
 
-  #status { padding:4px 10px; font-size:13px; border-bottom:1px solid var(--fg); min-height:24px; line-height:1.3; }
+  #status { padding:6px 10px; font-size:13px; border-bottom:1px solid var(--fg); min-height:28px; line-height:1.3; font-weight:bold; }
   #stage { flex:1; min-height:260px; position:relative; }
   canvas { position:absolute; inset:0; width:100%; height:100%; display:block; background:var(--bg); touch-action:manipulation; }
 
@@ -69,8 +70,8 @@
   </div>
 
   <div class="group" id="hands" role="group" aria-label="Manos">
-    <button data-view="R"><span class="sw der"></span>Solo derecha</button>
     <button data-view="L"><span class="sw izq"></span>Solo izquierda</button>
+    <button data-view="R"><span class="sw der"></span>Solo derecha</button>
     <button data-view="both" class="on">Ambas manos</button>
   </div>
 
@@ -80,7 +81,7 @@
   </div>
 </div>
 
-<div id="status">Cargando…</div>
+<div id="status">Iniciando catálogo…</div>
 <div id="stage"><canvas id="cv"></canvas></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
@@ -99,17 +100,24 @@ const REPERTORIO = [
 
 const $ = id => document.getElementById(id);
 
-/* ============ 1. Teclado fijo: naturales + Sib (reemplaza al Si) ============ */
+/* ============ 1. Teclado fijo: naturales + Sib (con notación latina y americana) ============ */
 const KEYS = [
-  { label: "Do",   midi: 72 }, { label: "Re",  midi: 74 }, { label: "Mi",  midi: 76 },
-  { label: "Fa",   midi: 77 }, { label: "Sol", midi: 79 }, { label: "La",  midi: 81 },
-  { label: "Sib",  midi: 82, acc: true },
-  { label: "Do’",  midi: 84 }, { label: "Re’", midi: 86 }, { label: "Mi’", midi: 88 }, { label: "Fa’", midi: 89 }
+  { label: "Do",   midi: 72, eng: "C" }, 
+  { label: "Re",  midi: 74, eng: "D" }, 
+  { label: "Mi",  midi: 76, eng: "E" },
+  { label: "Fa",   midi: 77, eng: "F" }, 
+  { label: "Sol", midi: 79, eng: "G" }, 
+  { label: "La",  midi: 81, eng: "A" },
+  { label: "Sib",  midi: 82, acc: true, eng: "Bb" },
+  { label: "Do’",  midi: 84, eng: "C" }, 
+  { label: "Re’", midi: 86, eng: "D" }, 
+  { label: "Mi’", midi: 88, eng: "E" }, 
+  { label: "Fa’", midi: 89, eng: "F" }
 ];
 const NK = KEYS.length;
 const BY_MIDI = {};
 KEYS.forEach((k, i) => { BY_MIDI[k.midi] = i; });
-const COLOR = { L: "#90EE90", R: "#FF9A1F" };   // verde claro (izquierda) · naranja (derecha)
+const COLOR = { L: "#90EE90", R: "#FF6B00" };   // verde claro (izquierda) · naranja-rojo (derecha)
 const LETTER = { L: "I", R: "D" };
 
 let curShift = 0;
@@ -123,7 +131,7 @@ function lookup(midi) {
   return best;
 }
 
-/* ============ 2. Audio: dos voces ============ */
+/* ============ 2. Audio ============ */
 const panR = new Tone.Panner(0.35).toDestination();
 const panL = new Tone.Panner(-0.35).toDestination();
 const synthR = new Tone.PolySynth(Tone.FMSynth, {
@@ -149,7 +157,7 @@ const click = new Tone.MembraneSynth({
 }).toDestination();
 click.volume.value = -10;
 
-/* ============ 3. Estado y construcción de la pieza ============ */
+/* ============ 3. Estado de la pieza ============ */
 let speed = 1, view = "both", posTicks = 0, loadToken = 0;
 let song = { notes: [], bpm: 100, ppq: 480, num: 4, lead: 4, endBeat: 1 };
 const shown = n => view === "both" || n.hand === view;
@@ -206,6 +214,7 @@ function buildSong(raw, bpm, ppq, num, name) {
 /* ============ 4. Carga del repertorio (fetch de MIDI) ============ */
 function parseMidi(buf, hand, nombre) {
   const MidiClass = (window.Midi && window.Midi.Midi) || window.Midi;
+  if (!MidiClass) throw new Error("La librería Tonejs/Midi no se cargó correctamente.");
   const midi = new MidiClass(buf);
   const raw = [];
   midi.tracks.forEach(tr => {
@@ -222,7 +231,7 @@ function parseMidi(buf, hand, nombre) {
 async function fetchHand(url, hand) {
   if (!url) return null;
   const r = await fetch(url);
-  if (!r.ok) throw new Error("No se encontró " + url + " (" + r.status + ")");
+  if (!r.ok) throw new Error(`No se encontró la pista (${r.status} ${r.statusText}) en ${url}`);
   return parseMidi(await r.arrayBuffer(), hand, url);
 }
 
@@ -234,19 +243,19 @@ async function loadSong(index) {
     const [L, R] = await Promise.all([fetchHand(item.izquierda, "L"), fetchHand(item.derecha, "R")]);
     if (token !== loadToken) return;
     const base = R || L;
-    if (!base) throw new Error("La canción no tiene archivos MIDI.");
+    if (!base) throw new Error("La canción no tiene archivos MIDI asignados.");
     const raw = [];
     [L, R].forEach(m => {
       if (!m) return;
       const k = base.ppq / m.ppq;
       m.raw.forEach(n => raw.push({ ...n, ticks: Math.round(n.ticks * k), durationTicks: Math.max(1, Math.round(n.durationTicks * k)) }));
     });
-    if (!raw.length) throw new Error("Los archivos MIDI no contienen notas.");
+    if (!raw.length) throw new Error("El archivo MIDI no contiene notas.");
     buildSong(raw, base.bpm, base.ppq, base.num, item.nombre);
   } catch (err) {
     if (token !== loadToken) return;
     console.error(err);
-    $("status").textContent = "No se pudo cargar «" + item.nombre + "»: " + err.message;
+    $("status").textContent = "❌ Error al cargar «" + item.nombre + "»: " + err.message;
   }
 }
 
@@ -377,6 +386,7 @@ function drawLanes(beat) {
   });
 }
 
+/* Dibujo de bloques que caen (Coincide con color de mano L=Verde, R=Naranja) */
 function drawBlocks(beat) {
   const hy = G.hit, showLetter = G.laneW >= 64;
   ctx.textBaseline = "middle";
@@ -411,6 +421,7 @@ function drawBlocks(beat) {
   }
 }
 
+/* Dibujo del metalófono con notación latina y americana */
 function drawKeyboard(beat) {
   const FLASH = 0.5;
   const lit = KEYS.map(() => ({ L: 0, R: 0 }));
@@ -421,14 +432,19 @@ function drawKeyboard(beat) {
     if (age < FLASH) lit[n.key][n.hand] = Math.max(lit[n.key][n.hand], 1 - age / FLASH);
   }
   KEYS.forEach((k, i) => {
-    const h = G.len(i), pad = Math.max(2, G.laneW * 0.05), x = laneX(i) + pad, w = G.laneW - 2 * pad, y = G.top(i);
+    const h = G.len(i);
+    const w = Math.min(G.laneW - 4, Math.max(20, G.laneW * 0.72));
+    const x = laneCX(i) - w / 2;
+    const y = G.top(i);
+
     const g = ctx.createLinearGradient(x, 0, x + w, 0);
     if (k.acc) { g.addColorStop(0, "#6c7781"); g.addColorStop(0.45, "#a3adb6"); g.addColorStop(1, "#59636c"); }
     else       { g.addColorStop(0, "#c9cfd4"); g.addColorStop(0.45, "#ffffff"); g.addColorStop(1, "#b4bbc1"); }
-    roundRect(x, y, w, h, 8);
+    roundRect(x, y, w, h, 6);
     ctx.fillStyle = g; ctx.fill();
+
     const lv = lit[i];
-    ctx.save(); roundRect(x, y, w, h, 8); ctx.clip();
+    ctx.save(); roundRect(x, y, w, h, 6); ctx.clip();
     if (lv.L && lv.R) {
       ctx.globalAlpha = lv.L; ctx.fillStyle = COLOR.L; ctx.fillRect(x, y, w / 2, h);
       ctx.globalAlpha = lv.R; ctx.fillStyle = COLOR.R; ctx.fillRect(x + w / 2, y, w / 2, h);
@@ -436,18 +452,26 @@ function drawKeyboard(beat) {
       ctx.globalAlpha = lv.L || lv.R; ctx.fillStyle = lv.L ? COLOR.L : COLOR.R; ctx.fillRect(x, y, w, h);
     }
     ctx.restore();
+
     const any = Math.max(lv.L, lv.R);
-    roundRect(x, y, w, h, 8);
-    ctx.lineWidth = any > 0.05 ? 4 : 2; ctx.strokeStyle = "#000"; ctx.stroke();
-    if (h > 110) {
-      ctx.fillStyle = "#222";
-      [0.1, 0.9].forEach(f => { ctx.beginPath(); ctx.arc(x + w / 2, y + f * h, Math.max(2.5, w * 0.05), 0, 7); ctx.fill(); });
-    }
+    roundRect(x, y, w, h, 6);
+    ctx.lineWidth = any > 0.05 ? 3.5 : 2; ctx.strokeStyle = "#000"; ctx.stroke();
+
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillStyle = (k.acc && any < 0.5) ? "#fff" : "#000";
-    const sz = fitSize(k.label, w - 4, Math.min(24, G.laneW * 0.4), "bold");
-    ctx.font = "bold " + sz + "px Georgia, serif";
-    ctx.fillText(k.label, x + w / 2, y + Math.max(18, h * 0.16));
+
+    // 1. Notación Latina (Do, Re, Mi...)
+    const sz1 = fitSize(k.label, w - 4, Math.min(20, w * 0.45), "bold");
+    ctx.font = "bold " + sz1 + "px Georgia, serif";
+    const y1 = y + Math.max(16, h * 0.14);
+    ctx.fillText(k.label, x + w / 2, y1);
+
+    // 2. Notación Americana entre paréntesis (C, D, E...)
+    const subText = "(" + k.eng + ")";
+    const sz2 = fitSize(subText, w - 4, Math.min(14, sz1 * 0.75), "normal");
+    ctx.font = "normal " + sz2 + "px Georgia, serif";
+    const y2 = y1 + sz1 * 0.9 + 2;
+    ctx.fillText(subText, x + w / 2, y2);
   });
 }
 
