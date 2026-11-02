@@ -11,6 +11,15 @@
   html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family:Georgia,"Times New Roman",serif; }
   body { display:flex; flex-direction:column; height:100vh; height:100dvh; min-height:100%; overflow-x:hidden; }
 
+  /* MODO PANTALLA COMPLETA CSS (FALLBACK PARA MOVILES E IPHONE) */
+  body.is-fullscreen {
+    position: fixed !important;
+    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+    width: 100vw !important; height: 100vh !important; height: 100dvh !important;
+    z-index: 999999 !important;
+    background: var(--bg) !important;
+  }
+
   .controls { display:flex; flex-wrap:wrap; gap:4px 8px; align-items:center; padding:4px 6px; border-bottom:2px solid var(--fg); background:var(--bg); }
   .group { display:flex; gap:6px; align-items:center; }
   .grow { flex:1 1 180px; min-width:0; }
@@ -35,7 +44,7 @@
   #hands { flex:1 1 260px; }
   #hands button { flex:1; padding:4px 4px; font-size:13px; }
   #play { min-width:90px; }
-  #fs { background:#f0f0f0; }
+  #fs { background:#f0f0f0; font-weight:bold; }
 
   #status { padding:4px 8px; font-size:12px; border-bottom:1px solid var(--fg); min-height:24px; line-height:1.2; font-weight:bold; }
   #stage { flex:1; min-height:200px; position:relative; width:100%; }
@@ -272,20 +281,41 @@ window.addEventListener("load", () => {
     REPERTORIO.forEach((s, i) => { const o = document.createElement("option"); o.value = i; o.textContent = s.nombre; songSel.append(o); });
     songSel.addEventListener("change", () => loadSong(parseInt(songSel.value, 10)));
 
-    /* ============ 5. Controles y Pantalla Completa ============ */
+    /* ============ 5. Controles y Pantalla Completa Mejorada ============ */
     const releaseAll = () => { synthL.releaseAll(); synthR.releaseAll(); };
     const ticksNow = () => Tone.Transport.getTicksAtTime(Tone.getContext().currentTime);
     const getBeat = () => (Tone.Transport.state === "started" ? ticksNow() : posTicks) / Tone.Transport.PPQ;
 
     function toggleFullscreen() {
-      const doc = document.documentElement;
-      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-        if (doc.requestFullscreen) doc.requestFullscreen();
-        else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
+      const isFS = document.fullscreenElement || document.webkitFullscreenElement || document.body.classList.contains("is-fullscreen");
+      
+      if (!isFS) {
+        const doc = document.documentElement;
+        const isIPhone = /iPhone|iPod/.test(navigator.userAgent);
+        const req = doc.requestFullscreen || doc.webkitRequestFullscreen;
+
+        // Si es Android o PC e intenta fullscreen nativo
+        if (req && !isIPhone) {
+          try {
+            const p = req.call(doc);
+            if (p && p.catch) {
+              p.catch(() => { document.body.classList.add("is-fullscreen"); resize(); });
+            }
+          } catch(e) {
+            document.body.classList.add("is-fullscreen");
+          }
+        } else {
+          // Para iOS / Safari / iFrames restrictivos de Google Sites
+          document.body.classList.add("is-fullscreen");
+        }
+        $("fs").textContent = "✕ Salir";
       } else {
-        if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen().catch(()=>{});
+        document.body.classList.remove("is-fullscreen");
+        $("fs").textContent = "⛶ Pantalla completa";
       }
+      setTimeout(resize, 100);
     }
     $("fs").addEventListener("click", toggleFullscreen);
 
@@ -299,9 +329,6 @@ window.addEventListener("load", () => {
 
     $("play").addEventListener("click", async () => {
       await Tone.start();
-      if (!document.fullscreenElement && !document.webkitFullscreenElement && window.innerWidth < 900) {
-        try { toggleFullscreen(); } catch(e){}
-      }
       const T = Tone.Transport;
       if (T.state === "started") { posTicks = ticksNow(); T.pause(); releaseAll(); $("play").textContent = "Iniciar"; }
       else {
@@ -344,7 +371,7 @@ window.addEventListener("load", () => {
       [...$("hands").querySelectorAll("button")].forEach(x => x.classList.toggle("on", x === b));
     });
 
-    /* ============ 6. Dibujo sin márgenes laterales ============ */
+    /* ============ 6. Dibujo adaptativo ============ */
     const cv = $("cv"), ctx = cv.getContext("2d"), stage = $("stage");
     let W = 300, H = 400, dpr = 1;
     const G = {};
