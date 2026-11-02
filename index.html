@@ -88,21 +88,20 @@
 <script>
 /* =====================================================================
    REPERTORIO  ← aquí se agregan las canciones
-   Cada canción necesita un nombre y las rutas (relativas a este HTML) de
-   sus dos archivos MIDI. Cualquiera de las dos manos puede ser null.
+   Asegúrate de que los nombres de archivo coincidan exactamente en mayúsculas/minúsculas.
    ===================================================================== */
-JavaScript
 const REPERTORIO = [
   { 
     nombre: "El Peral", 
-    izquierda: "./midis/glockenspiel1.mid", 
-    derecha: "./midis/glockenspiel2.mid" 
+    izquierda: "./midis/Glockenspiel1.mid", 
+    derecha: "./midis/Glockenspiel2.mid" 
   },
   { 
-    nombre: "El Peral", 
+    nombre: "Demostración: Himno a la alegría", 
     demo: true 
   }
 ];
+
 const $ = id => document.getElementById(id);
 
 /* ============ 1. Teclado fijo: naturales + Sib (reemplaza al Si) ============ */
@@ -119,8 +118,6 @@ const COLOR = { L: "#90EE90", R: "#FF9A1F" };   // verde claro (izquierda) · na
 const LETTER = { L: "I", R: "D" };
 
 let curShift = 0;
-/* Nota MIDI → lámina. Se pliega a Do5–Fa6; las notas sin lámina (Do#, Si, etc.)
-   van a la lámina más cercana (a igual distancia, la más grave). */
 function lookup(midi) {
   let p = midi + curShift;
   while (p < 72) p += 12;
@@ -134,14 +131,14 @@ function lookup(midi) {
 /* ============ 2. Audio: dos voces ============ */
 const panR = new Tone.Panner(0.35).toDestination();
 const panL = new Tone.Panner(-0.35).toDestination();
-const synthR = new Tone.PolySynth(Tone.FMSynth, {          // mano derecha: campanilla brillante
+const synthR = new Tone.PolySynth(Tone.FMSynth, {
   harmonicity: 4.07, modulationIndex: 7, oscillator: { type: "sine" },
   envelope: { attack: 0.001, decay: 1.6, sustain: 0, release: 1.2 },
   modulation: { type: "sine" },
   modulationEnvelope: { attack: 0.001, decay: 0.35, sustain: 0, release: 0.2 }
 }).connect(panR);
 synthR.volume.value = -12;
-const synthL = new Tone.PolySynth(Tone.FMSynth, {          // mano izquierda: sonido redondo (vibráfono)
+const synthL = new Tone.PolySynth(Tone.FMSynth, {
   harmonicity: 2, modulationIndex: 1.6, oscillator: { type: "triangle" },
   envelope: { attack: 0.004, decay: 1.1, sustain: 0, release: 0.9 },
   modulation: { type: "sine" },
@@ -167,7 +164,6 @@ function buildSong(raw, bpm, ppq, num, name) {
   T.PPQ = ppq;
   num = Math.min(Math.max(num || 4, 2), 6);
 
-  // La nota más grave de la pieza se coloca en la primera octava (Do–Si)
   let low = Infinity;
   raw.forEach(n => { if (n.midi < low) low = n.midi; });
   curShift = isFinite(low) ? 72 + (((low - 72) % 12) + 12) % 12 - low : 0;
@@ -181,7 +177,6 @@ function buildSong(raw, bpm, ppq, num, name) {
       vel: n.velocity || 0.8, ticks: n.ticks + num * ppq, dur: n.durationTicks
     });
   });
-  // Si ambas manos tocan la misma lámina a la vez, cada bloque ocupa media columna
   const seen = {};
   notes.forEach(n => { const id = n.key + "@" + n.ticks; (seen[id] = seen[id] || []).push(n); });
   Object.values(seen).forEach(g => {
@@ -198,7 +193,7 @@ function buildSong(raw, bpm, ppq, num, name) {
       synths[n.hand].triggerAttackRelease(Tone.Frequency(n.midi, "midi").toFrequency(), d, time, n.vel);
     }, n.ticks + "i");
   });
-  T.scheduleRepeat(time => {                               // metrónomo siempre activo
+  T.scheduleRepeat(time => {
     const b = Math.round(T.getTicksAtTime(time) / ppq);
     click.triggerAttackRelease(b % num === 0 ? "C3" : "G2", "32n", time);
   }, "4n");
@@ -207,6 +202,18 @@ function buildSong(raw, bpm, ppq, num, name) {
   $("status").textContent = name + " · " + Math.round(bpm) + " BPM · " + notes.length + " notas";
 }
 
+/* Demostración integrada */
+function demoRaw() {
+  const mel = [76,76,77,79, 79,77,76,74, 72,72,74,76, 76,74,74, 76,76,77,79, 79,77,76,74, 72,72,74,76, 74,72,72];
+  const dur = [1,1,1,1, 1,1,1,1, 1,1,1,1, 1.5,.5,2, 1,1,1,1, 1,1,1,1, 1,1,1,1, 1.5,.5,2];
+  let t = 0; const raw = [];
+  mel.forEach((m, i) => { raw.push({ midi: m, ticks: t * 480, durationTicks: dur[i] * 480, velocity: 0.8, hand: "R" }); t += dur[i]; });
+  for (let phrase = 0; phrase < 2; phrase++) for (let bar = 0; bar < 4; bar++) [0, 2].forEach(off => {
+    if (phrase === 1 && bar === 3 && off === 2) return;
+    raw.push({ midi: bar < 2 ? 72 : 79, ticks: (phrase * 16 + bar * 4 + off) * 480, durationTicks: 960, velocity: 0.7, hand: "L" });
+  });
+  return raw;
+}
 
 /* ============ 4. Carga del repertorio (fetch de los dos MIDI) ============ */
 function parseMidi(buf, hand, nombre) {
@@ -236,13 +243,13 @@ async function loadSong(index) {
   $("status").textContent = "Cargando «" + item.nombre + "»…";
   try {
     const [L, R] = await Promise.all([fetchHand(item.izquierda, "L"), fetchHand(item.derecha, "R")]);
-    if (token !== loadToken) return;                       // se eligió otra canción mientras cargaba
+    if (token !== loadToken) return;
     const base = R || L;
     if (!base) throw new Error("La canción no tiene archivos MIDI.");
     const raw = [];
     [L, R].forEach(m => {
       if (!m) return;
-      const k = base.ppq / m.ppq;                          // por si las manos tienen distinta resolución
+      const k = base.ppq / m.ppq;
       m.raw.forEach(n => raw.push({ ...n, ticks: Math.round(n.ticks * k), durationTicks: Math.max(1, Math.round(n.durationTicks * k)) }));
     });
     if (!raw.length) throw new Error("Los archivos MIDI no contienen notas.");
@@ -280,7 +287,6 @@ $("play").addEventListener("click", async () => {
 });
 $("stop").addEventListener("click", resetPlayback);
 
-/* Velocidad (50 %–200 %) */
 $("speed").addEventListener("input", e => {
   const v = parseInt(e.target.value, 10);
   speed = v / 100;
@@ -288,7 +294,6 @@ $("speed").addEventListener("input", e => {
   Tone.Transport.bpm.value = song.bpm * speed;
 });
 
-/* Barra de posición: al arrastrar se pausa y al soltar continúa */
 const seek = $("seek");
 let dragging = false, wasPlaying = false, lastSeek = 0;
 seek.addEventListener("pointerdown", () => {
@@ -308,7 +313,6 @@ seek.addEventListener("input", () => {
   if (!dragging && Tone.Transport.state === "started") { Tone.Transport.ticks = posTicks; releaseAll(); }
 });
 
-/* Manos: solo derecha / solo izquierda / ambas */
 $("hands").addEventListener("click", e => {
   const b = e.target.closest("button[data-view]"); if (!b) return;
   view = b.dataset.view;
@@ -323,12 +327,12 @@ const G = {};
 function computeGeom() {
   G.m = Math.max(6, Math.round(W * 0.015));
   G.laneW = (W - 2 * G.m) / NK;
-  G.barArea = Math.max(80, Math.min(245, H * 0.34));            // largo de la lámina más grave
+  G.barArea = Math.max(80, Math.min(245, H * 0.34));
   G.top0 = H - G.barArea - Math.max(6, H * 0.012);
-  G.len = i => G.barArea * (1 - 0.3 * i / (NK - 1));            // láminas más cortas hacia el agudo
-  G.top = i => G.top0 - (KEYS[i].acc ? G.len(i) / 3 : 0);       // la alterada sube 1/3 de su largo
-  G.hit = Math.min(...KEYS.map((k, i) => k.acc ? G.top(i) : Infinity)) - Math.max(6, H * 0.012);  // línea de impacto única
-  G.px = Math.max(40, G.hit / 3.6);                             // píxeles por pulso
+  G.len = i => G.barArea * (1 - 0.3 * i / (NK - 1));
+  G.top = i => G.top0 - (KEYS[i].acc ? G.len(i) / 3 : 0);
+  G.hit = Math.min(...KEYS.map((k, i) => k.acc ? G.top(i) : Infinity)) - Math.max(6, H * 0.012);
+  G.px = Math.max(40, G.hit / 3.6);
   G.blockH = Math.max(18, Math.min(36, G.px * 0.3));
 }
 function resize() {
@@ -378,7 +382,6 @@ function drawLanes(beat) {
   });
 }
 
-/* Bloques que caen: el borde inferior toca la línea de impacto en el instante del golpe */
 function drawBlocks(beat) {
   const hy = G.hit, showLetter = G.laneW >= 64;
   ctx.textBaseline = "middle";
@@ -413,7 +416,6 @@ function drawBlocks(beat) {
   }
 }
 
-/* Metalófono: láminas de metal; el Sib va en acero oscuro y más arriba */
 function drawKeyboard(beat) {
   const FLASH = 0.5;
   const lit = KEYS.map(() => ({ L: 0, R: 0 }));
@@ -462,12 +464,12 @@ function frame() {
   drawLanes(beat);
   drawBlocks(beat);
 
-  ctx.strokeStyle = "#000"; ctx.lineWidth = 3;                    // línea de impacto
+  ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(G.m - 4, G.hit); ctx.lineTo(W - G.m + 4, G.hit); ctx.stroke();
 
   drawKeyboard(beat);
 
-  if (Tone.Transport.state === "started" && beat < song.lead) {   // cuenta previa
+  if (Tone.Transport.state === "started" && beat < song.lead) {
     ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.font = "bold " + Math.round(Math.min(W, G.hit) * 0.45) + "px Georgia, serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(String(Math.floor(beat) + 1), W / 2, G.hit / 2);
