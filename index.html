@@ -87,18 +87,13 @@
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
 <script>
 /* =====================================================================
-   REPERTORIO  ← aquí se agregan las canciones
-   Asegúrate de que los nombres de archivo coincidan exactamente en mayúsculas/minúsculas.
+   REPERTORIO
    ===================================================================== */
 const REPERTORIO = [
   { 
     nombre: "El Peral", 
     izquierda: "./midis/Glockenspiel1.mid", 
     derecha: "./midis/Glockenspiel2.mid" 
-  },
-  { 
-    nombre: "Demostración: Himno a la alegría", 
-    demo: true 
   }
 ];
 
@@ -138,6 +133,7 @@ const synthR = new Tone.PolySynth(Tone.FMSynth, {
   modulationEnvelope: { attack: 0.001, decay: 0.35, sustain: 0, release: 0.2 }
 }).connect(panR);
 synthR.volume.value = -12;
+
 const synthL = new Tone.PolySynth(Tone.FMSynth, {
   harmonicity: 2, modulationIndex: 1.6, oscillator: { type: "triangle" },
   envelope: { attack: 0.004, decay: 1.1, sustain: 0, release: 0.9 },
@@ -145,6 +141,7 @@ const synthL = new Tone.PolySynth(Tone.FMSynth, {
   modulationEnvelope: { attack: 0.002, decay: 0.12, sustain: 0, release: 0.1 }
 }).connect(panL);
 synthL.volume.value = -6;
+
 const synths = { L: synthL, R: synthR };
 const click = new Tone.MembraneSynth({
   pitchDecay: 0.008, octaves: 2,
@@ -177,12 +174,14 @@ function buildSong(raw, bpm, ppq, num, name) {
       vel: n.velocity || 0.8, ticks: n.ticks + num * ppq, dur: n.durationTicks
     });
   });
+
   const seen = {};
   notes.forEach(n => { const id = n.key + "@" + n.ticks; (seen[id] = seen[id] || []).push(n); });
   Object.values(seen).forEach(g => {
     const l = g.find(n => n.hand === "L"), r = g.find(n => n.hand === "R");
     if (l && r) { l.half = "L"; r.half = "R"; }
   });
+
   song = { notes, bpm, ppq, num, lead: num,
     endBeat: Math.max(1, notes.reduce((m, n) => Math.max(m, n.startBeat + n.durBeats), 0) + 1.5) };
 
@@ -193,29 +192,18 @@ function buildSong(raw, bpm, ppq, num, name) {
       synths[n.hand].triggerAttackRelease(Tone.Frequency(n.midi, "midi").toFrequency(), d, time, n.vel);
     }, n.ticks + "i");
   });
+
   T.scheduleRepeat(time => {
     const b = Math.round(T.getTicksAtTime(time) / ppq);
     click.triggerAttackRelease(b % num === 0 ? "C3" : "G2", "32n", time);
   }, "4n");
+
   T.bpm.value = bpm * speed;
   $("seek").max = song.endBeat; $("seek").value = 0;
   $("status").textContent = name + " · " + Math.round(bpm) + " BPM · " + notes.length + " notas";
 }
 
-/* Demostración integrada */
-function demoRaw() {
-  const mel = [76,76,77,79, 79,77,76,74, 72,72,74,76, 76,74,74, 76,76,77,79, 79,77,76,74, 72,72,74,76, 74,72,72];
-  const dur = [1,1,1,1, 1,1,1,1, 1,1,1,1, 1.5,.5,2, 1,1,1,1, 1,1,1,1, 1,1,1,1, 1.5,.5,2];
-  let t = 0; const raw = [];
-  mel.forEach((m, i) => { raw.push({ midi: m, ticks: t * 480, durationTicks: dur[i] * 480, velocity: 0.8, hand: "R" }); t += dur[i]; });
-  for (let phrase = 0; phrase < 2; phrase++) for (let bar = 0; bar < 4; bar++) [0, 2].forEach(off => {
-    if (phrase === 1 && bar === 3 && off === 2) return;
-    raw.push({ midi: bar < 2 ? 72 : 79, ticks: (phrase * 16 + bar * 4 + off) * 480, durationTicks: 960, velocity: 0.7, hand: "L" });
-  });
-  return raw;
-}
-
-/* ============ 4. Carga del repertorio (fetch de los dos MIDI) ============ */
+/* ============ 4. Carga del repertorio (fetch de MIDI) ============ */
 function parseMidi(buf, hand, nombre) {
   const MidiClass = (window.Midi && window.Midi.Midi) || window.Midi;
   const midi = new MidiClass(buf);
@@ -230,16 +218,17 @@ function parseMidi(buf, hand, nombre) {
     num: midi.header.timeSignatures.length ? midi.header.timeSignatures[0].timeSignature[0] : 4
   };
 }
+
 async function fetchHand(url, hand) {
   if (!url) return null;
   const r = await fetch(url);
   if (!r.ok) throw new Error("No se encontró " + url + " (" + r.status + ")");
   return parseMidi(await r.arrayBuffer(), hand, url);
 }
+
 async function loadSong(index) {
   const item = REPERTORIO[index], token = ++loadToken;
   resetPlayback();
-  if (item.demo) { buildSong(demoRaw(), 100, 480, 4, item.nombre); return; }
   $("status").textContent = "Cargando «" + item.nombre + "»…";
   try {
     const [L, R] = await Promise.all([fetchHand(item.izquierda, "L"), fetchHand(item.derecha, "R")]);
@@ -260,6 +249,7 @@ async function loadSong(index) {
     $("status").textContent = "No se pudo cargar «" + item.nombre + "»: " + err.message;
   }
 }
+
 const songSel = $("song");
 REPERTORIO.forEach((s, i) => { const o = document.createElement("option"); o.value = i; o.textContent = s.nombre; songSel.append(o); });
 songSel.addEventListener("change", () => loadSong(parseInt(songSel.value, 10)));
@@ -276,6 +266,7 @@ function resetPlayback() {
   $("play").textContent = "Iniciar";
   $("seek").value = 0;
 }
+
 $("play").addEventListener("click", async () => {
   await Tone.start();
   const T = Tone.Transport;
@@ -320,10 +311,11 @@ $("hands").addEventListener("click", e => {
   [...$("hands").querySelectorAll("button")].forEach(x => x.classList.toggle("on", x === b));
 });
 
-/* ============ 6. Dibujo adaptable al tamaño de la pantalla ============ */
+/* ============ 6. Dibujo en pantalla ============ */
 const cv = $("cv"), ctx = cv.getContext("2d"), stage = $("stage");
 let W = 300, H = 400, dpr = 1;
 const G = {};
+
 function computeGeom() {
   G.m = Math.max(6, Math.round(W * 0.015));
   G.laneW = (W - 2 * G.m) / NK;
@@ -335,6 +327,7 @@ function computeGeom() {
   G.px = Math.max(40, G.hit / 3.6);
   G.blockH = Math.max(18, Math.min(36, G.px * 0.3));
 }
+
 function resize() {
   const r = stage.getBoundingClientRect();
   W = Math.max(200, Math.floor(r.width)); H = Math.max(200, Math.floor(r.height));
@@ -349,6 +342,7 @@ resize();
 
 const laneX = i => G.m + i * G.laneW;
 const laneCX = i => laneX(i) + G.laneW / 2;
+
 function roundRect(x, y, w, h, r) {
   r = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
@@ -358,6 +352,7 @@ function roundRect(x, y, w, h, r) {
   ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
 }
+
 function fitSize(text, maxW, start, weight) {
   let s = Math.round(start);
   for (; s > 8; s--) { ctx.font = weight + " " + s + "px Georgia, serif"; if (ctx.measureText(text).width <= maxW) break; }
