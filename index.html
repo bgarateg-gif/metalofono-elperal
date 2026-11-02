@@ -9,46 +9,48 @@
   :root { --fg:#000; --bg:#fff; --izq:#90EE90; --der:#FF6B00; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family:Georgia,"Times New Roman",serif; }
-  body { display:flex; flex-direction:column; height:100vh; height:100dvh; min-height:520px; overflow-x:hidden; }
+  body { display:flex; flex-direction:column; height:100vh; height:100dvh; min-height:100%; overflow-x:hidden; }
 
-  .controls { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; padding:8px 10px; border-bottom:2px solid var(--fg); }
-  .group { display:flex; gap:8px; align-items:center; }
-  .grow { flex:1 1 220px; min-width:0; }
+  .controls { display:flex; flex-wrap:wrap; gap:4px 8px; align-items:center; padding:4px 6px; border-bottom:2px solid var(--fg); background:var(--bg); }
+  .group { display:flex; gap:6px; align-items:center; }
+  .grow { flex:1 1 180px; min-width:0; }
   .full { flex:1 1 100%; }
 
-  button, select { font:inherit; font-size:16px; min-height:44px; padding:8px 14px; background:var(--bg); color:var(--fg);
-    border:2px solid var(--fg); border-radius:8px; cursor:pointer; touch-action:manipulation; }
+  button, select { font:inherit; font-size:14px; min-height:36px; padding:4px 10px; background:var(--bg); color:var(--fg);
+    border:2px solid var(--fg); border-radius:6px; cursor:pointer; touch-action:manipulation; }
   button:active { background:#ddd; }
   button.on { background:var(--fg); color:var(--bg); }
-  button:focus-visible, select:focus-visible, input:focus-visible { outline:3px solid var(--fg); outline-offset:2px; }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline:2px solid var(--fg); outline-offset:1px; }
   select { width:100%; text-overflow:ellipsis; }
 
-  .sw { display:inline-block; width:14px; height:14px; border:2px solid currentColor; vertical-align:-2px; margin-right:4px; }
+  .sw { display:inline-block; width:12px; height:12px; border:2px solid currentColor; vertical-align:-1px; margin-right:3px; }
   .sw.izq { background:var(--izq); }
   .sw.der { background:var(--der); }
 
-  .lbl { font-style:italic; white-space:nowrap; }
-  input[type=range] { flex:1; min-width:0; height:36px; accent-color:#000; cursor:pointer; margin:0; }
-  #speedv { min-width:4ch; text-align:right; font-variant-numeric:tabular-nums; font-weight:bold; }
-  #time { font-size:14px; font-variant-numeric:tabular-nums; white-space:nowrap; min-width:7.5ch; }
+  .lbl { font-style:italic; white-space:nowrap; font-size:13px; }
+  input[type=range] { flex:1; min-width:0; height:28px; accent-color:#000; cursor:pointer; margin:0; }
+  #speedv { min-width:4ch; text-align:right; font-variant-numeric:tabular-nums; font-weight:bold; font-size:13px; }
+  #time { font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; min-width:7.5ch; }
 
-  #hands { flex:1 1 320px; }
-  #hands button { flex:1; padding:8px 6px; font-size:15px; }
-  #play { min-width:116px; }
+  #hands { flex:1 1 260px; }
+  #hands button { flex:1; padding:4px 4px; font-size:13px; }
+  #play { min-width:90px; }
+  #fs { background:#f0f0f0; }
 
-  #status { padding:6px 10px; font-size:13px; border-bottom:1px solid var(--fg); min-height:28px; line-height:1.3; font-weight:bold; }
-  #stage { flex:1; min-height:260px; position:relative; }
+  #status { padding:3px 8px; font-size:12px; border-bottom:1px solid var(--fg); min-height:22px; line-height:1.2; font-weight:bold; }
+  #stage { flex:1; min-height:200px; position:relative; width:100%; }
   canvas { position:absolute; inset:0; width:100%; height:100%; display:block; background:var(--bg); touch-action:manipulation; }
 
-  @media (max-width:520px) {
-    .controls { gap:8px; padding:8px; }
-    #play, #stop { flex:1; }
+  @media (max-width:600px) {
+    .controls { gap:4px; padding:4px; }
+    #play, #stop, #fs { flex:1; padding:4px 6px; }
     #transport { flex:1 1 100%; }
   }
-  @media (max-height:520px) and (orientation:landscape) {
+  @media (max-height:500px) and (orientation:landscape) {
     body { min-height:0; }
-    button, select { min-height:38px; padding:4px 10px; }
-    .controls { padding:4px 8px; gap:6px 10px; }
+    button, select { min-height:32px; padding:2px 6px; font-size:13px; }
+    .controls { padding:2px 4px; gap:4px 6px; }
+    #status { padding:2px 6px; font-size:11px; min-height:18px; }
   }
 </style>
 </head>
@@ -61,6 +63,7 @@
   <div class="group" id="transport">
     <button id="play">Iniciar</button>
     <button id="stop">Reiniciar</button>
+    <button id="fs" title="Pantalla completa">⛶ Pantalla completa</button>
   </div>
 
   <div class="group grow">
@@ -93,14 +96,14 @@
 const REPERTORIO = [
   { 
     nombre: "El Peral", 
-    izquierda: "./midis/Glockenspiel2.mid", 
-    derecha: "./midis/Glockenspiel1.mid" 
+    izquierda: "./midis/Glockenspiel1.mid", 
+    derecha: "./midis/Glockenspiel2.mid" 
   }
 ];
 
 const $ = id => document.getElementById(id);
 
-/* ============ 1. Teclado fijo: naturales + Sib (con notación latina y americana) ============ */
+/* ============ 1. Teclado fijo: naturales + Sib ============ */
 const KEYS = [
   { label: "Do",   midi: 72, eng: "C" }, 
   { label: "Re",  midi: 74, eng: "D" }, 
@@ -117,7 +120,7 @@ const KEYS = [
 const NK = KEYS.length;
 const BY_MIDI = {};
 KEYS.forEach((k, i) => { BY_MIDI[k.midi] = i; });
-const COLOR = { L: "#90EE90", R: "#FF6B00" };   // verde claro (izquierda) · naranja-rojo (derecha)
+const COLOR = { L: "#90EE90", R: "#FF6B00" };
 const LETTER = { L: "I", R: "D" };
 
 let curShift = 0;
@@ -211,7 +214,7 @@ function buildSong(raw, bpm, ppq, num, name) {
   $("status").textContent = name + " · " + Math.round(bpm) + " BPM · " + notes.length + " notas";
 }
 
-/* ============ 4. Carga del repertorio (fetch de MIDI) ============ */
+/* ============ 4. Carga de archivos ============ */
 function parseMidi(buf, hand, nombre) {
   const MidiClass = (window.Midi && window.Midi.Midi) || window.Midi;
   if (!MidiClass) throw new Error("La librería Tonejs/Midi no se cargó correctamente.");
@@ -263,10 +266,22 @@ const songSel = $("song");
 REPERTORIO.forEach((s, i) => { const o = document.createElement("option"); o.value = i; o.textContent = s.nombre; songSel.append(o); });
 songSel.addEventListener("change", () => loadSong(parseInt(songSel.value, 10)));
 
-/* ============ 5. Controles ============ */
+/* ============ 5. Controles y Pantalla Completa ============ */
 const releaseAll = () => { synthL.releaseAll(); synthR.releaseAll(); };
 const ticksNow = () => Tone.Transport.getTicksAtTime(Tone.getContext().currentTime);
 const getBeat = () => (Tone.Transport.state === "started" ? ticksNow() : posTicks) / Tone.Transport.PPQ;
+
+function toggleFullscreen() {
+  const doc = document.documentElement;
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    if (doc.requestFullscreen) doc.requestFullscreen();
+    else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
+  } else {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }
+}
+$("fs").addEventListener("click", toggleFullscreen);
 
 function resetPlayback() {
   Tone.Transport.stop();
@@ -278,6 +293,10 @@ function resetPlayback() {
 
 $("play").addEventListener("click", async () => {
   await Tone.start();
+  // Intenta entrar automáticamente en pantalla completa en móviles
+  if (!document.fullscreenElement && !document.webkitFullscreenElement && window.innerWidth < 900) {
+    try { toggleFullscreen(); } catch(e){}
+  }
   const T = Tone.Transport;
   if (T.state === "started") { posTicks = ticksNow(); T.pause(); releaseAll(); $("play").textContent = "Iniciar"; }
   else {
@@ -320,21 +339,21 @@ $("hands").addEventListener("click", e => {
   [...$("hands").querySelectorAll("button")].forEach(x => x.classList.toggle("on", x === b));
 });
 
-/* ============ 6. Dibujo en pantalla ============ */
+/* ============ 6. Dibujo en pantalla (Sin aire lateral) ============ */
 const cv = $("cv"), ctx = cv.getContext("2d"), stage = $("stage");
 let W = 300, H = 400, dpr = 1;
 const G = {};
 
 function computeGeom() {
-  G.m = Math.max(6, Math.round(W * 0.015));
+  G.m = 2; // Margen lateral mínimo (2px) para eliminar aire a los costados
   G.laneW = (W - 2 * G.m) / NK;
-  G.barArea = Math.max(80, Math.min(245, H * 0.34));
-  G.top0 = H - G.barArea - Math.max(6, H * 0.012);
+  G.barArea = Math.max(70, Math.min(245, H * 0.38));
+  G.top0 = H - G.barArea - Math.max(4, H * 0.01);
   G.len = i => G.barArea * (1 - 0.3 * i / (NK - 1));
   G.top = i => G.top0 - (KEYS[i].acc ? G.len(i) / 3 : 0);
-  G.hit = Math.min(...KEYS.map((k, i) => k.acc ? G.top(i) : Infinity)) - Math.max(6, H * 0.012);
-  G.px = Math.max(40, G.hit / 3.6);
-  G.blockH = Math.max(18, Math.min(36, G.px * 0.3));
+  G.hit = Math.min(...KEYS.map((k, i) => k.acc ? G.top(i) : Infinity)) - Math.max(4, H * 0.01);
+  G.px = Math.max(35, G.hit / 3.6);
+  G.blockH = Math.max(16, Math.min(36, G.px * 0.3));
 }
 
 function resize() {
@@ -364,7 +383,7 @@ function roundRect(x, y, w, h, r) {
 
 function fitSize(text, maxW, start, weight) {
   let s = Math.round(start);
-  for (; s > 8; s--) { ctx.font = weight + " " + s + "px Georgia, serif"; if (ctx.measureText(text).width <= maxW) break; }
+  for (; s > 7; s--) { ctx.font = weight + " " + s + "px Georgia, serif"; if (ctx.measureText(text).width <= maxW) break; }
   return s;
 }
 
@@ -386,9 +405,8 @@ function drawLanes(beat) {
   });
 }
 
-/* Dibujo de bloques que caen (Coincide con color de mano L=Verde, R=Naranja) */
 function drawBlocks(beat) {
-  const hy = G.hit, showLetter = G.laneW >= 64;
+  const hy = G.hit, showLetter = G.laneW >= 56;
   ctx.textBaseline = "middle";
   for (const n of song.notes) {
     const yb = hy - (n.startBeat - beat) * G.px;
@@ -398,30 +416,29 @@ function drawBlocks(beat) {
     ctx.beginPath(); ctx.rect(laneX(n.key), 0, G.laneW, hy); ctx.clip();
     const h = Math.min(G.blockH, Math.max(12, n.durBeats * G.px - 4));
     const half = view === "both" ? n.half : null;
-    const full = G.laneW - Math.max(4, G.laneW * 0.1), w = half ? full / 2 - 1 : full;
+    const full = G.laneW - Math.max(2, G.laneW * 0.05), w = half ? full / 2 - 1 : full;
     const x = half === "R" ? laneCX(n.key) + 1 : half === "L" ? laneCX(n.key) - 1 - w : laneCX(n.key) - w / 2;
-    roundRect(x, yb - h, w, h, 6);
+    roundRect(x, yb - h, w, h, 5);
     ctx.fillStyle = COLOR[n.hand]; ctx.fill();
     ctx.lineWidth = 2; ctx.strokeStyle = "#000"; ctx.stroke();
-    if (h >= 18) {
+    if (h >= 16) {
       const yc = yb - h / 2 + 1;
       ctx.fillStyle = "#000";
       if (half) {
-        if (showLetter) { ctx.textAlign = "center"; ctx.font = "bold 13px Georgia, serif"; ctx.fillText(LETTER[n.hand], x + w / 2, yc); }
+        if (showLetter) { ctx.textAlign = "center"; ctx.font = "bold 12px Georgia, serif"; ctx.fillText(LETTER[n.hand], x + w / 2, yc); }
       } else {
-        const name = KEYS[n.key].label, pad = showLetter ? 22 : 6;
-        const sz = fitSize(name, w - pad - 4, Math.min(17, h * 0.55), "bold");
+        const name = KEYS[n.key].label, pad = showLetter ? 18 : 4;
+        const sz = fitSize(name, w - pad - 2, Math.min(16, h * 0.55), "bold");
         ctx.font = "bold " + sz + "px Georgia, serif";
         ctx.textAlign = "center";
-        ctx.fillText(name, x + (showLetter ? (w + 14) / 2 : w / 2), yc);
-        if (showLetter) { ctx.textAlign = "left"; ctx.font = "bold 11px Georgia, serif"; ctx.fillText(LETTER[n.hand], x + 7, yc); }
+        ctx.fillText(name, x + (showLetter ? (w + 12) / 2 : w / 2), yc);
+        if (showLetter) { ctx.textAlign = "left"; ctx.font = "bold 10px Georgia, serif"; ctx.fillText(LETTER[n.hand], x + 5, yc); }
       }
     }
     ctx.restore();
   }
 }
 
-/* Dibujo del metalófono con notación latina y americana */
 function drawKeyboard(beat) {
   const FLASH = 0.5;
   const lit = KEYS.map(() => ({ L: 0, R: 0 }));
@@ -433,18 +450,18 @@ function drawKeyboard(beat) {
   }
   KEYS.forEach((k, i) => {
     const h = G.len(i);
-    const w = Math.min(G.laneW - 4, Math.max(20, G.laneW * 0.72));
+    const w = Math.min(G.laneW - 2, Math.max(16, G.laneW * 0.82));
     const x = laneCX(i) - w / 2;
     const y = G.top(i);
 
     const g = ctx.createLinearGradient(x, 0, x + w, 0);
     if (k.acc) { g.addColorStop(0, "#6c7781"); g.addColorStop(0.45, "#a3adb6"); g.addColorStop(1, "#59636c"); }
     else       { g.addColorStop(0, "#c9cfd4"); g.addColorStop(0.45, "#ffffff"); g.addColorStop(1, "#b4bbc1"); }
-    roundRect(x, y, w, h, 6);
+    roundRect(x, y, w, h, 5);
     ctx.fillStyle = g; ctx.fill();
 
     const lv = lit[i];
-    ctx.save(); roundRect(x, y, w, h, 6); ctx.clip();
+    ctx.save(); roundRect(x, y, w, h, 5); ctx.clip();
     if (lv.L && lv.R) {
       ctx.globalAlpha = lv.L; ctx.fillStyle = COLOR.L; ctx.fillRect(x, y, w / 2, h);
       ctx.globalAlpha = lv.R; ctx.fillStyle = COLOR.R; ctx.fillRect(x + w / 2, y, w / 2, h);
@@ -454,23 +471,21 @@ function drawKeyboard(beat) {
     ctx.restore();
 
     const any = Math.max(lv.L, lv.R);
-    roundRect(x, y, w, h, 6);
-    ctx.lineWidth = any > 0.05 ? 3.5 : 2; ctx.strokeStyle = "#000"; ctx.stroke();
+    roundRect(x, y, w, h, 5);
+    ctx.lineWidth = any > 0.05 ? 3 : 1.8; ctx.strokeStyle = "#000"; ctx.stroke();
 
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillStyle = (k.acc && any < 0.5) ? "#fff" : "#000";
 
-    // 1. Notación Latina (Do, Re, Mi...)
-    const sz1 = fitSize(k.label, w - 4, Math.min(20, w * 0.45), "bold");
+    const sz1 = fitSize(k.label, w - 2, Math.min(18, w * 0.45), "bold");
     ctx.font = "bold " + sz1 + "px Georgia, serif";
-    const y1 = y + Math.max(16, h * 0.14);
+    const y1 = y + Math.max(14, h * 0.14);
     ctx.fillText(k.label, x + w / 2, y1);
 
-    // 2. Notación Americana entre paréntesis (C, D, E...)
     const subText = "(" + k.eng + ")";
-    const sz2 = fitSize(subText, w - 4, Math.min(14, sz1 * 0.75), "normal");
+    const sz2 = fitSize(subText, w - 2, Math.min(13, sz1 * 0.75), "normal");
     ctx.font = "normal " + sz2 + "px Georgia, serif";
-    const y2 = y1 + sz1 * 0.9 + 2;
+    const y2 = y1 + sz1 * 0.85 + 2;
     ctx.fillText(subText, x + w / 2, y2);
   });
 }
@@ -484,26 +499,9 @@ function frame() {
   drawBlocks(beat);
 
   ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(G.m - 4, G.hit); ctx.lineTo(W - G.m + 4, G.hit); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(G.m - 2, G.hit); ctx.lineTo(W - G.m + 2, G.hit); ctx.stroke();
 
   drawKeyboard(beat);
 
   if (Tone.Transport.state === "started" && beat < song.lead) {
-    ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.font = "bold " + Math.round(Math.min(W, G.hit) * 0.45) + "px Georgia, serif";
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(String(Math.floor(beat) + 1), W / 2, G.hit / 2);
-  }
-
-  if (!dragging && performance.now() - lastSeek > 300) seek.value = Math.min(beat, song.endBeat);
-  const spb = 60 / (song.bpm * speed), cur = Math.min(beat, song.endBeat);
-  $("time").textContent = fmt(cur * spb) + " / " + fmt(song.endBeat * spb);
-
-  if (Tone.Transport.state === "started" && beat > song.endBeat) resetPlayback();
-  requestAnimationFrame(frame);
-}
-
-loadSong(0);
-requestAnimationFrame(frame);
-</script>
-</body>
-</html>
+    ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.font = "bold " + Math.round(Math.min(W, G.hit) * 0.45) + "px
